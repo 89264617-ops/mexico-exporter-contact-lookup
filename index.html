@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>墨西哥企业联系方式智能查询</title>
+    <meta
+      name="description"
+      content="基于墨西哥企业联系方式查询模板的本地交叉筛选与智能检索页面"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="页面标题和统计">
+        <div>
+          <p class="eyebrow">Mexico Exporter Contact Lookup</p>
+          <h1>墨西哥企业联系方式智能查询</h1>
+        </div>
+        <div class="meta-line">
+          <span id="sourceName">数据源加载中</span>
+          <span id="generatedAt"></span>
+        </div>
+      </section>
+
+      <section class="summary-grid" aria-label="数据概览">
+        <article class="metric metric-total">
+          <span>企业总数</span>
+          <strong id="metricTotal">0</strong>
+        </article>
+        <article class="metric metric-found">
+          <span>已找到</span>
+          <strong id="metricFound">0</strong>
+        </article>
+        <article class="metric metric-contact">
+          <span>有邮箱/电话/官网</span>
+          <strong id="metricContact">0</strong>
+        </article>
+        <article class="metric metric-address">
+          <span>有地址</span>
+          <strong id="metricAddress">0</strong>
+        </article>
+        <article class="metric metric-missing">
+          <span>未找到</span>
+          <strong id="metricMissing">0</strong>
+        </article>
+      </section>
+
+      <section class="toolbar" aria-label="查询条件">
+        <div class="search-wrap">
+          <label for="searchInput">智能搜索</label>
+          <div class="search-row">
+            <input
+              id="searchInput"
+              type="search"
+              autocomplete="off"
+              placeholder="输入企业名、RFC、邮箱、电话、州、行业关键词"
+            />
+            <button id="clearSearch" type="button">清空</button>
+          </div>
+        </div>
+
+        <div class="quick-chips" aria-label="快捷筛选">
+          <button type="button" data-chip="status:已找到">已找到</button>
+          <button type="button" data-chip="status:需复核">需复核</button>
+          <button type="button" data-chip="status:未找到">未找到</button>
+          <button type="button" data-chip="contact:有联系方式">有联系方式</button>
+          <button type="button" data-chip="contact:仅地址">仅地址</button>
+          <button type="button" data-chip="confidence:高">高置信度</button>
+        </div>
+
+        <div class="filter-grid">
+          <label>
+            查询状态
+            <select id="statusFilter" data-filter="status"></select>
+          </label>
+          <label>
+            匹配置信度
+            <select id="confidenceFilter" data-filter="confidence"></select>
+          </label>
+          <label>
+            联系方式状态
+            <select id="contactFilter" data-filter="contact"></select>
+          </label>
+          <label>
+            州
+            <select id="stateFilter" data-filter="state"></select>
+          </label>
+          <label>
+            行业
+            <select id="industryFilter" data-filter="industry"></select>
+          </label>
+          <label>
+            排序
+            <select id="sortSelect">
+              <option value="relevance">相关度优先</option>
+              <option value="status">查询状态</option>
+              <option value="confidence">置信度</option>
+              <option value="name">企业名称</option>
+              <option value="date">最新登记日期</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button id="resetFilters" type="button">重置筛选</button>
+          <button id="exportCsv" type="button">导出当前结果</button>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="查询结果">
+        <div class="results-panel">
+          <div class="results-head">
+            <div>
+              <p class="eyebrow">Results</p>
+              <h2 id="resultCount">0 条结果</h2>
+            </div>
+            <div id="activeFilters" class="active-filters"></div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>企业</th>
+                  <th>RFC</th>
+                  <th>行业</th>
+                  <th>地区</th>
+                  <th>联系方式</th>
+                  <th>状态</th>
+                  <th>置信度</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+            <div id="emptyState" class="empty-state" hidden>没有符合条件的企业</div>
+          </div>
+
+          <button id="loadMore" class="load-more" type="button">加载更多</button>
+        </div>
+
+        <aside class="detail-panel" aria-label="企业详情">
+          <div class="detail-card" id="detailCard">
+            <p class="eyebrow">Selected Company</p>
+            <h2>未选择企业</h2>
+            <p class="muted">联系方式详情待载入</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
