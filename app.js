@@ -1,6 +1,6 @@
 (function () {
   const payload = window.EXPORTERS_DATA || { records: [], summary: {} };
-  const records = payload.records || [];
+  const records = inflateRecords(payload);
   const state = {
     query: "",
     status: "",
@@ -39,6 +39,19 @@
     detailCard: document.getElementById("detailCard"),
   };
 
+  function inflateRecords(data) {
+    if (Array.isArray(data.records)) return data.records;
+    if (!Array.isArray(data.headers) || !Array.isArray(data.rows)) return [];
+    return data.rows.map((row) => {
+      const record = {};
+      data.headers.forEach((header, index) => {
+        const value = row[index];
+        if (value !== undefined && value !== null && value !== "") record[header] = value;
+      });
+      return record;
+    });
+  }
+
   function normalize(value) {
     return String(value || "")
       .normalize("NFD")
@@ -64,6 +77,18 @@
       .filter(Boolean);
   }
 
+  function searchableText(record) {
+    if (record._search) return record._search;
+    const value = normalize(
+      Object.entries(record)
+        .filter(([key]) => key !== "_search")
+        .map(([, entryValue]) => entryValue)
+        .join(" "),
+    );
+    Object.defineProperty(record, "_search", { value, writable: true, configurable: true });
+    return value;
+  }
+
   function statusClass(value) {
     if (value === "已找到") return "found";
     if (value === "需复核") return "review";
@@ -87,7 +112,7 @@
     const normalizedName = normalize(text(record, "标准化企业名（查询关键词）"));
     const email = normalize(text(record, "邮箱"));
     const phone = normalize(text(record, "电话"));
-    const haystack = record._search || normalize(Object.values(record).join(" "));
+    const haystack = searchableText(record);
 
     for (const token of tokens) {
       if (!haystack.includes(token)) return -1;
@@ -237,6 +262,13 @@
     return `https://${v}`;
   }
 
+  function googleSearchUrl(record, intent) {
+    const query = [text(record, "企业名称（原文）"), text(record, "RFC（税务登记号）"), intent, "Mexico"]
+      .filter(Boolean)
+      .join(" ");
+    return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  }
+
   function escapeHtml(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -302,6 +334,10 @@
     if (!record) return;
     const status = text(record, "查询状态") || "空白";
     const confidence = text(record, "匹配置信度") || "空白";
+    const googleContactUrl = text(record, "Google联系方式搜索URL") || googleSearchUrl(record, "contacto telefono email");
+    const officialSearchUrl =
+      text(record, "官网/Contacto搜索URL") || googleSearchUrl(record, "sitio oficial contacto");
+    const denueUrl = text(record, "DENUE查询入口URL") || "https://www.inegi.org.mx/app/mapa/denue/default.aspx";
     els.detailCard.innerHTML = `
       <div class="detail-title">
         <p class="eyebrow">Company Detail</p>
@@ -313,19 +349,26 @@
       </div>
       <div class="field-list">
         ${field("RFC", text(record, "RFC（税务登记号）"))}
+        ${field("商业名称", text(record, "商业名称"))}
+        ${field("贸易身份", text(record, "贸易身份"))}
+        ${field("企业规模", text(record, "统一企业规模"))}
         ${field("行业", text(record, "行业描述（中文，合并）"))}
+        ${field("进口行业", text(record, "进口行业描述"))}
+        ${field("出口行业", text(record, "出口行业描述"))}
+        ${field("SCIAN", text(record, "SCIAN行业门类"))}
         ${field("官网", text(record, "官网"), "url")}
         ${field("电话", text(record, "电话"))}
         ${field("邮箱", text(record, "邮箱"), "email")}
         ${field("地址", text(record, "地址"))}
         ${field("城市/州", text(record, "城市/州"))}
+        ${field("数据截止", text(record, "数据截止日期"))}
         ${field("来源链接", text(record, "来源链接"), "url")}
         ${field("备注", text(record, "备注"))}
       </div>
       <div class="detail-links">
-        ${text(record, "Google联系方式搜索URL") ? `<a href="${escapeAttr(text(record, "Google联系方式搜索URL"))}" target="_blank" rel="noreferrer">Google 联系方式搜索</a>` : ""}
-        ${text(record, "官网/Contacto搜索URL") ? `<a href="${escapeAttr(text(record, "官网/Contacto搜索URL"))}" target="_blank" rel="noreferrer">官网/Contacto 搜索</a>` : ""}
-        ${text(record, "DENUE查询入口URL") ? `<a href="${escapeAttr(text(record, "DENUE查询入口URL"))}" target="_blank" rel="noreferrer">DENUE 查询入口</a>` : ""}
+        <a href="${escapeAttr(googleContactUrl)}" target="_blank" rel="noreferrer">Google 联系方式搜索</a>
+        <a href="${escapeAttr(officialSearchUrl)}" target="_blank" rel="noreferrer">官网/Contacto 搜索</a>
+        <a href="${escapeAttr(denueUrl)}" target="_blank" rel="noreferrer">DENUE 查询入口</a>
       </div>
     `;
   }
@@ -459,6 +502,10 @@
       "邮箱",
       "地址",
       "城市/州",
+      "州",
+      "市或区",
+      "贸易身份",
+      "统一企业规模",
       "来源链接",
       "匹配置信度",
       "查询状态",
