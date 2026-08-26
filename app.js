@@ -59,6 +59,7 @@
     contact: "",
     stateName: "",
     industry: "",
+    tradeRole: "",
     fieldFilters: [],
     sort: "relevance",
     visible: 80,
@@ -80,7 +81,7 @@
     contactFilter: document.getElementById("contactFilter"),
     stateFilter: document.getElementById("stateFilter"),
     industryFilter: document.getElementById("industryFilter"),
-    sortSelect: document.getElementById("sortSelect"),
+    tradeRoleFilter: document.getElementById("tradeRoleFilter"),
     fieldFilterKey: document.getElementById("fieldFilterKey"),
     fieldFilterOperator: document.getElementById("fieldFilterOperator"),
     fieldFilterValue: document.getElementById("fieldFilterValue"),
@@ -230,6 +231,7 @@
     if (skip !== "contact" && state.contact && text(record, "联系方式状态") !== state.contact) return false;
     if (skip !== "state" && state.stateName && text(record, "州") !== state.stateName) return false;
     if (skip !== "industry" && state.industry && !splitIndustries(record).includes(state.industry)) return false;
+    if (skip !== "tradeRole" && state.tradeRole && text(record, "贸易身份") !== state.tradeRole) return false;
     if (skip !== "field" && state.fieldFilters.length && !matchesFieldFilters(record)) return false;
     return true;
   }
@@ -419,6 +421,12 @@
       state.industry,
       countOptions(filteredRecords("industry"), splitIndustries),
     );
+    setOptions(
+      els.tradeRoleFilter,
+      "贸易身份",
+      state.tradeRole,
+      countOptions(filteredRecords("tradeRole"), (record) => [text(record, "贸易身份") || "空白"]),
+    );
   }
 
   function renderMetrics(items) {
@@ -513,6 +521,7 @@
     if (state.contact) chips.push(`联系方式: ${state.contact}`);
     if (state.stateName) chips.push(`州: ${state.stateName}`);
     if (state.industry) chips.push(`行业: ${state.industry}`);
+    if (state.tradeRole) chips.push(`贸易身份: ${state.tradeRole}`);
     for (const filter of state.fieldFilters) {
       const value = ["empty", "notEmpty"].includes(filter.operator) ? "" : `: ${filter.value}`;
       chips.push(`${filter.field} ${operatorLabel(filter.operator)}${value}`);
@@ -636,8 +645,9 @@
       state.visible = 80;
       render();
     });
-    els.sortSelect.addEventListener("change", () => {
-      state.sort = els.sortSelect.value;
+    els.tradeRoleFilter.addEventListener("change", () => {
+      state.tradeRole = els.tradeRoleFilter.value;
+      state.visible = 80;
       render();
     });
 
@@ -684,6 +694,7 @@
       state.contact = "";
       state.stateName = "";
       state.industry = "";
+      state.tradeRole = "";
       state.fieldFilters = [];
       state.sort = "relevance";
       state.visible = 80;
@@ -718,7 +729,7 @@
     els.contactFilter.value = state.contact;
     els.stateFilter.value = state.stateName;
     els.industryFilter.value = state.industry;
-    els.sortSelect.value = state.sort;
+    els.tradeRoleFilter.value = state.tradeRole;
   }
 
   function updateChipState() {
