@@ -102,6 +102,36 @@
           </label>
         </div>
 
+        <div class="advanced-panel" aria-label="高级字段筛选">
+          <div class="advanced-head">
+            <p class="eyebrow">Field Filters</p>
+            <button id="clearFieldFilters" type="button">清除字段筛选</button>
+          </div>
+          <div class="advanced-filter-grid">
+            <label>
+              字段
+              <select id="fieldFilterKey"></select>
+            </label>
+            <label>
+              条件
+              <select id="fieldFilterOperator">
+                <option value="contains">包含</option>
+                <option value="equals">等于</option>
+                <option value="notContains">不包含</option>
+                <option value="notEmpty">有值</option>
+                <option value="empty">为空</option>
+              </select>
+            </label>
+            <label>
+              值
+              <input id="fieldFilterValue" list="fieldValueSuggestions" autocomplete="off" />
+              <datalist id="fieldValueSuggestions"></datalist>
+            </label>
+            <button id="addFieldFilter" type="button">添加筛选</button>
+          </div>
+          <div id="fieldFilterList" class="field-filter-list"></div>
+        </div>
+
         <div class="action-row">
           <button id="resetFilters" type="button">重置筛选</button>
           <button id="exportCsv" type="button">导出当前结果</button>
@@ -124,6 +154,7 @@
                 <tr>
                   <th>企业</th>
                   <th>RFC</th>
+                  <th>贸易/规模</th>
                   <th>行业</th>
                   <th>地区</th>
                   <th>联系方式</th>
@@ -150,7 +181,7 @@
       </section>
     </main>
 
-    <script src="data.js?v=20260825-merged"></script>
-    <script src="app.js?v=20260825-merged"></script>
+    <script src="data.js?v=20260826-fields"></script>
+    <script src="app.js?v=20260826-fields"></script>
   </body>
 </html>

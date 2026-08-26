@@ -175,6 +175,7 @@ h2 {
 }
 
 #searchInput,
+#fieldFilterValue,
 select {
   width: 100%;
   min-height: 38px;
@@ -186,6 +187,7 @@ select {
 }
 
 #searchInput:focus,
+#fieldFilterValue:focus,
 select:focus,
 button:focus {
   outline: 2px solid rgba(37, 99, 235, 0.28);
@@ -216,6 +218,57 @@ button:focus {
   display: grid;
   grid-template-columns: repeat(6, minmax(160px, 1fr));
   gap: 10px;
+}
+
+.advanced-panel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.advanced-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.advanced-head .eyebrow {
+  margin-bottom: 0;
+}
+
+.advanced-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) minmax(140px, 0.7fr) minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.advanced-filter-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  min-height: 0;
+}
+
+.field-filter-chip {
+  max-width: 100%;
+  min-height: 30px;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1e40af;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .action-row {
@@ -275,7 +328,7 @@ table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1180px;
+  min-width: 1280px;
 }
 
 thead th {
@@ -317,6 +370,24 @@ tbody tr:hover {
 }
 
 .company-cell small {
+  color: var(--muted);
+}
+
+.profile-cell {
+  min-width: 155px;
+}
+
+.profile-cell strong,
+.profile-cell small {
+  display: block;
+}
+
+.profile-cell strong {
+  margin-bottom: 4px;
+  color: #334155;
+}
+
+.profile-cell small {
   color: var(--muted);
 }
 
@@ -417,6 +488,30 @@ tbody tr:hover {
   gap: 8px;
 }
 
+.detail-section-list {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.detail-section summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.detail-section .field-list {
+  padding: 0 12px 12px;
+}
+
 .field {
   border-bottom: 1px solid #e2e8f0;
   padding-bottom: 8px;
@@ -451,6 +546,14 @@ tbody tr:hover {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .advanced-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .advanced-filter-grid button {
+    grid-column: span 2;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
   }
@@ -477,8 +580,18 @@ tbody tr:hover {
   }
 
   .summary-grid,
-  .filter-grid {
+  .filter-grid,
+  .advanced-filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .advanced-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .advanced-filter-grid button {
+    grid-column: auto;
   }
 
   .search-row {

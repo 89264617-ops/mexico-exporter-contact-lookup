@@ -1,6 +1,57 @@
 (function () {
   const payload = window.EXPORTERS_DATA || { records: [], summary: {} };
   const records = inflateRecords(payload);
+  const allHeaders = collectHeaders(payload, records);
+  const filterableHeaders = allHeaders.filter((header) => header !== "序号");
+  const fieldGroups = [
+    {
+      label: "基础信息",
+      fields: ["序号", "RFC（税务登记号）", "企业名称（原文）", "标准化企业名（查询关键词）", "商业名称", "纳税人类型", "贸易身份"],
+    },
+    {
+      label: "联系方式",
+      fields: ["官网", "电话", "邮箱", "地址", "城市/州", "州", "市或区", "联系人/职务", "联系方式状态"],
+    },
+    {
+      label: "进出口与行业",
+      fields: [
+        "一般进口商",
+        "行业进口商",
+        "行业出口商",
+        "行业代码（合并）",
+        "行业描述（中文，合并）",
+        "进口行业代码",
+        "进口行业描述",
+        "进口首次登记日期",
+        "出口行业代码",
+        "出口行业描述",
+        "出口首次登记日期",
+        "SCIAN行业代码",
+        "SCIAN行业门类",
+        "行业详情",
+      ],
+    },
+    {
+      label: "规模与来源",
+      fields: [
+        "原始记录数",
+        "原始员工规模",
+        "统一企业规模",
+        "最早登记日期",
+        "最晚登记日期",
+        "数据截止日期",
+        "数据来源归并",
+        "来源链接",
+        "匹配置信度",
+        "查询状态",
+        "备注",
+      ],
+    },
+    {
+      label: "查询链接",
+      fields: ["Google联系方式搜索URL", "官网/Contacto搜索URL", "DENUE查询入口URL", "SIEM查询入口URL"],
+    },
+  ];
   const state = {
     query: "",
     status: "",
@@ -8,6 +59,7 @@
     contact: "",
     stateName: "",
     industry: "",
+    fieldFilters: [],
     sort: "relevance",
     visible: 80,
     selectedIndex: null,
@@ -29,6 +81,13 @@
     stateFilter: document.getElementById("stateFilter"),
     industryFilter: document.getElementById("industryFilter"),
     sortSelect: document.getElementById("sortSelect"),
+    fieldFilterKey: document.getElementById("fieldFilterKey"),
+    fieldFilterOperator: document.getElementById("fieldFilterOperator"),
+    fieldFilterValue: document.getElementById("fieldFilterValue"),
+    fieldValueSuggestions: document.getElementById("fieldValueSuggestions"),
+    addFieldFilter: document.getElementById("addFieldFilter"),
+    fieldFilterList: document.getElementById("fieldFilterList"),
+    clearFieldFilters: document.getElementById("clearFieldFilters"),
     resetFilters: document.getElementById("resetFilters"),
     exportCsv: document.getElementById("exportCsv"),
     resultsBody: document.getElementById("resultsBody"),
@@ -52,6 +111,20 @@
     });
   }
 
+  function collectHeaders(data, rows) {
+    const headers = Array.isArray(data.allHeaders) ? [...data.allHeaders] : [];
+    const storedHeaders = Array.isArray(data.headers) ? data.headers : [];
+    for (const header of storedHeaders) {
+      if (header && !headers.includes(header)) headers.push(header);
+    }
+    for (const record of rows.slice(0, 30)) {
+      for (const header of Object.keys(record)) {
+        if (header !== "_search" && !headers.includes(header)) headers.push(header);
+      }
+    }
+    return headers;
+  }
+
   function normalize(value) {
     return String(value || "")
       .normalize("NFD")
@@ -70,6 +143,16 @@
     return String(record[key] || "").trim();
   }
 
+  function fieldValue(record, key) {
+    if (key === "Google联系方式搜索URL") return googleSearchUrl(record, "contacto telefono email");
+    if (key === "官网/Contacto搜索URL") return googleSearchUrl(record, "sitio oficial contacto");
+    if (key === "DENUE查询入口URL") {
+      return text(record, key) || "https://www.inegi.org.mx/app/mapa/denue/default.aspx";
+    }
+    if (key === "SIEM查询入口URL") return text(record, key) || "https://www.siem.economia.gob.mx/";
+    return text(record, key);
+  }
+
   function splitIndustries(record) {
     return text(record, "行业描述（中文，合并）")
       .split(";")
@@ -79,12 +162,7 @@
 
   function searchableText(record) {
     if (record._search) return record._search;
-    const value = normalize(
-      Object.entries(record)
-        .filter(([key]) => key !== "_search")
-        .map(([, entryValue]) => entryValue)
-        .join(" "),
-    );
+    const value = normalize(allHeaders.map((header) => fieldValue(record, header)).join(" "));
     Object.defineProperty(record, "_search", { value, writable: true, configurable: true });
     return value;
   }
@@ -98,6 +176,21 @@
 
   function hasContact(record) {
     return Boolean(text(record, "官网") || text(record, "电话") || text(record, "邮箱"));
+  }
+
+  function matchesFieldFilter(record, filter) {
+    const rawValue = fieldValue(record, filter.field);
+    const value = normalize(rawValue);
+    const target = normalize(filter.value);
+    if (filter.operator === "notEmpty") return Boolean(rawValue);
+    if (filter.operator === "empty") return !rawValue;
+    if (filter.operator === "equals") return value === target;
+    if (filter.operator === "notContains") return target ? !value.includes(target) : true;
+    return target ? value.includes(target) : true;
+  }
+
+  function matchesFieldFilters(record) {
+    return state.fieldFilters.every((filter) => matchesFieldFilter(record, filter));
   }
 
   function queryScore(record) {
@@ -137,6 +230,7 @@
     if (skip !== "contact" && state.contact && text(record, "联系方式状态") !== state.contact) return false;
     if (skip !== "state" && state.stateName && text(record, "州") !== state.stateName) return false;
     if (skip !== "industry" && state.industry && !splitIndustries(record).includes(state.industry)) return false;
+    if (skip !== "field" && state.fieldFilters.length && !matchesFieldFilters(record)) return false;
     return true;
   }
 
@@ -198,6 +292,100 @@
       select.appendChild(option);
     }
     select.value = current;
+  }
+
+  function populateFieldSelect() {
+    els.fieldFilterKey.innerHTML = "";
+    const grouped = new Set();
+    for (const group of fieldGroups) {
+      const fields = group.fields.filter((field) => filterableHeaders.includes(field));
+      if (!fields.length) continue;
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = group.label;
+      for (const field of fields) {
+        grouped.add(field);
+        optgroup.appendChild(new Option(field, field));
+      }
+      els.fieldFilterKey.appendChild(optgroup);
+    }
+    const otherFields = filterableHeaders.filter((field) => !grouped.has(field));
+    if (otherFields.length) {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = "其他字段";
+      for (const field of otherFields) optgroup.appendChild(new Option(field, field));
+      els.fieldFilterKey.appendChild(optgroup);
+    }
+  }
+
+  function updateFieldValueInput() {
+    const operator = els.fieldFilterOperator.value;
+    const needsValue = !["empty", "notEmpty"].includes(operator);
+    els.fieldFilterValue.disabled = !needsValue;
+    els.fieldFilterValue.placeholder = needsValue ? "输入或选择字段值" : "不需要填写";
+    if (!needsValue) els.fieldFilterValue.value = "";
+    updateFieldValueSuggestions();
+  }
+
+  function updateFieldValueSuggestions() {
+    const field = els.fieldFilterKey.value;
+    const operator = els.fieldFilterOperator.value;
+    els.fieldValueSuggestions.innerHTML = "";
+    if (!field || ["empty", "notEmpty"].includes(operator)) return;
+    const counts = new Map();
+    for (const item of filteredRecords("field")) {
+      const value = fieldValue(item.record, field);
+      if (!value || value.length > 160) continue;
+      counts.set(value, (counts.get(value) || 0) + 1);
+      if (counts.size > 900) break;
+    }
+    const options = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hans-CN")).slice(0, 80);
+    for (const [value] of options) {
+      const option = document.createElement("option");
+      option.value = value;
+      els.fieldValueSuggestions.appendChild(option);
+    }
+  }
+
+  function operatorLabel(operator) {
+    const labels = {
+      contains: "包含",
+      equals: "等于",
+      notContains: "不包含",
+      notEmpty: "有值",
+      empty: "为空",
+    };
+    return labels[operator] || operator;
+  }
+
+  function addFieldFilter() {
+    const field = els.fieldFilterKey.value;
+    const operator = els.fieldFilterOperator.value;
+    const value = els.fieldFilterValue.value.trim();
+    if (!field) return;
+    if (!["empty", "notEmpty"].includes(operator) && !value) {
+      els.fieldFilterValue.focus();
+      return;
+    }
+    state.fieldFilters.push({ field, operator, value });
+    els.fieldFilterValue.value = "";
+    state.visible = 80;
+    render();
+    updateFieldValueSuggestions();
+  }
+
+  function renderFieldFilters() {
+    if (!state.fieldFilters.length) {
+      els.fieldFilterList.innerHTML = "";
+      return;
+    }
+    els.fieldFilterList.innerHTML = state.fieldFilters
+      .map((filter, index) => {
+        const value = ["empty", "notEmpty"].includes(filter.operator) ? "" : `: ${filter.value}`;
+        return `<button type="button" class="field-filter-chip" data-remove-filter="${index}">
+          ${escapeHtml(filter.field)} ${escapeHtml(operatorLabel(filter.operator))}${escapeHtml(value)}
+        </button>`;
+      })
+      .join("");
   }
 
   function updateFilterOptions() {
@@ -289,6 +477,8 @@
         const status = text(record, "查询状态") || "空白";
         const confidence = text(record, "匹配置信度") || "空白";
         const industry = splitIndustries(record).slice(0, 3).join("；");
+        const trade = text(record, "贸易身份");
+        const size = text(record, "统一企业规模");
         return `
           <tr>
             <td class="company-cell">
@@ -296,6 +486,10 @@
               <small>${escapeHtml(text(record, "标准化企业名（查询关键词）"))}</small>
             </td>
             <td>${escapeHtml(text(record, "RFC（税务登记号）"))}</td>
+            <td class="profile-cell">
+              <strong>${escapeHtml(trade || "未标注")}</strong>
+              <small>${escapeHtml(size || text(record, "纳税人类型"))}</small>
+            </td>
             <td class="industry-cell">${escapeHtml(industry || text(record, "行业代码（合并）"))}</td>
             <td class="region-cell">${escapeHtml(text(record, "城市/州") || text(record, "州"))}</td>
             <td><div class="contact-stack">${contactHtml(record)}</div></td>
@@ -319,6 +513,10 @@
     if (state.contact) chips.push(`联系方式: ${state.contact}`);
     if (state.stateName) chips.push(`州: ${state.stateName}`);
     if (state.industry) chips.push(`行业: ${state.industry}`);
+    for (const filter of state.fieldFilters) {
+      const value = ["empty", "notEmpty"].includes(filter.operator) ? "" : `: ${filter.value}`;
+      chips.push(`${filter.field} ${operatorLabel(filter.operator)}${value}`);
+    }
     els.activeFilters.innerHTML = chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
   }
 
@@ -328,6 +526,39 @@
     if (v && linkType === "url") body = `<a href="${escapeAttr(toUrl(v))}" target="_blank" rel="noreferrer">${escapeHtml(v)}</a>`;
     if (v && linkType === "email") body = `<a href="mailto:${escapeAttr(v)}">${escapeHtml(v)}</a>`;
     return `<div class="field"><span>${escapeHtml(label)}</span><div>${body}</div></div>`;
+  }
+
+  function linkTypeForField(fieldName) {
+    if (fieldName === "邮箱") return "email";
+    if (["官网", "来源链接", "Google联系方式搜索URL", "官网/Contacto搜索URL", "DENUE查询入口URL", "SIEM查询入口URL"].includes(fieldName)) {
+      return "url";
+    }
+    return "";
+  }
+
+  function renderDetailGroups(record) {
+    const grouped = new Set();
+    const sections = [];
+    for (const group of fieldGroups) {
+      const fields = group.fields.filter((fieldName) => allHeaders.includes(fieldName));
+      if (!fields.length) continue;
+      fields.forEach((fieldName) => grouped.add(fieldName));
+      sections.push({ label: group.label, fields });
+    }
+    const otherFields = allHeaders.filter((fieldName) => !grouped.has(fieldName));
+    if (otherFields.length) sections.push({ label: "其他字段", fields: otherFields });
+    return sections
+      .map(
+        (section, index) => `
+          <details class="detail-section" ${index < 2 ? "open" : ""}>
+            <summary>${escapeHtml(section.label)}</summary>
+            <div class="field-list">
+              ${section.fields.map((fieldName) => field(fieldName, fieldValue(record, fieldName), linkTypeForField(fieldName))).join("")}
+            </div>
+          </details>
+        `,
+      )
+      .join("");
   }
 
   function renderDetail(record) {
@@ -347,24 +578,7 @@
           <span class="badge neutral">${escapeHtml(confidence)}</span>
         </div>
       </div>
-      <div class="field-list">
-        ${field("RFC", text(record, "RFC（税务登记号）"))}
-        ${field("商业名称", text(record, "商业名称"))}
-        ${field("贸易身份", text(record, "贸易身份"))}
-        ${field("企业规模", text(record, "统一企业规模"))}
-        ${field("行业", text(record, "行业描述（中文，合并）"))}
-        ${field("进口行业", text(record, "进口行业描述"))}
-        ${field("出口行业", text(record, "出口行业描述"))}
-        ${field("SCIAN", text(record, "SCIAN行业门类"))}
-        ${field("官网", text(record, "官网"), "url")}
-        ${field("电话", text(record, "电话"))}
-        ${field("邮箱", text(record, "邮箱"), "email")}
-        ${field("地址", text(record, "地址"))}
-        ${field("城市/州", text(record, "城市/州"))}
-        ${field("数据截止", text(record, "数据截止日期"))}
-        ${field("来源链接", text(record, "来源链接"), "url")}
-        ${field("备注", text(record, "备注"))}
-      </div>
+      <div class="detail-section-list">${renderDetailGroups(record)}</div>
       <div class="detail-links">
         <a href="${escapeAttr(googleContactUrl)}" target="_blank" rel="noreferrer">Google 联系方式搜索</a>
         <a href="${escapeAttr(officialSearchUrl)}" target="_blank" rel="noreferrer">官网/Contacto 搜索</a>
@@ -378,6 +592,7 @@
     const items = sortRecords(filteredRecords());
     renderMetrics(items);
     renderRows(items);
+    renderFieldFilters();
     renderActiveFilters();
     updateChipState();
   }
@@ -426,6 +641,29 @@
       render();
     });
 
+    els.fieldFilterKey.addEventListener("change", updateFieldValueSuggestions);
+    els.fieldFilterOperator.addEventListener("change", updateFieldValueInput);
+    els.fieldFilterValue.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addFieldFilter();
+    });
+    els.addFieldFilter.addEventListener("click", addFieldFilter);
+    els.fieldFilterList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-remove-filter]");
+      if (!button) return;
+      state.fieldFilters.splice(Number(button.dataset.removeFilter), 1);
+      state.visible = 80;
+      render();
+      updateFieldValueSuggestions();
+    });
+    els.clearFieldFilters.addEventListener("click", () => {
+      state.fieldFilters = [];
+      state.visible = 80;
+      render();
+      updateFieldValueSuggestions();
+    });
+
     document.querySelector(".quick-chips").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-chip]");
       if (!button) return;
@@ -446,11 +684,13 @@
       state.contact = "";
       state.stateName = "";
       state.industry = "";
+      state.fieldFilters = [];
       state.sort = "relevance";
       state.visible = 80;
       syncInputs();
       render();
       updateChipState();
+      updateFieldValueSuggestions();
     });
 
     els.loadMore.addEventListener("click", () => {
@@ -493,27 +733,10 @@
   }
 
   function exportCurrentResults(items) {
-    const headers = [
-      "RFC（税务登记号）",
-      "企业名称（原文）",
-      "行业描述（中文，合并）",
-      "官网",
-      "电话",
-      "邮箱",
-      "地址",
-      "城市/州",
-      "州",
-      "市或区",
-      "贸易身份",
-      "统一企业规模",
-      "来源链接",
-      "匹配置信度",
-      "查询状态",
-      "备注",
-    ];
+    const headers = allHeaders;
     const lines = [
       headers.join(","),
-      ...items.map((record) => headers.map((header) => csvCell(text(record, header))).join(",")),
+      ...items.map((record) => headers.map((header) => csvCell(fieldValue(record, header))).join(",")),
     ];
     const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -531,6 +754,8 @@
   function init() {
     els.sourceName.textContent = payload.source ? `数据源: ${payload.source}` : "数据源: Excel";
     els.generatedAt.textContent = payload.generatedAt ? `生成: ${payload.generatedAt.replace("T", " ")}` : "";
+    populateFieldSelect();
+    updateFieldValueInput();
     bindEvents();
     render();
     const firstFound = records.find((record) => text(record, "查询状态") === "已找到") || records[0];
